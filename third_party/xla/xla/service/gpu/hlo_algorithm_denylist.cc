@@ -44,6 +44,30 @@ constexpr char kDefaultDenylist[] = R"pb(
     cudnn_version { major: 9 minor: 1 patch: 1 }
     algos { id: 14 }
   }
+  entries {
+    hlo: "(f32[27,256,32,32]{3,2,1,0}, u8[0]{0}) custom-call(f32[27,256,32,32]{3,2,1,0}, f32[256,256,3,3]{3,2,1,0}, f32[256]{0}, f32[27,256,32,32]{3,2,1,0}), window={size=3x3 pad=1_1x1_1}, dim_labels=bf01_oi01->bf01, custom_call_target=\"__cudnn$convBiasActivationForward\", backend_config={\"operation_queue_id\":\"0\",\"wait_on_operation_queues\":[],\"cudnn_conv_backend_config\":{\"activation_mode\":\"kNone\",\"conv_result_scale\":1,\"side_input_scale\":1,\"leakyrelu_alpha\":0},\"force_earliest_schedule\":false}"
+    cc { major: 7 }
+    cudnn_version { major: 9 }
+    algos { id: 14 }
+  }
+  entries {
+    hlo: "(f32[27,256,32,32]{3,2,1,0}, u8[0]{0}) custom-call(f32[27,256,32,32]{3,2,1,0}, f32[256,256,3,3]{3,2,1,0}, f32[256]{0}, f32[27,256,32,32]{3,2,1,0}), window={size=3x3 pad=1_1x1_1}, dim_labels=bf01_oi01->bf01, custom_call_target=\"__cudnn$convBiasActivationForward\", backend_config={\"operation_queue_id\":\"0\",\"wait_on_operation_queues\":[],\"cudnn_conv_backend_config\":{\"activation_mode\":\"kNone\",\"conv_result_scale\":1,\"side_input_scale\":1,\"leakyrelu_alpha\":0},\"force_earliest_schedule\":false}"
+    cc { major: 7 minor: 5 }
+    cudnn_version { major: 9 }
+    algos { id: 14 }
+  }
+  entries {
+    hlo: "(f32[27,256,32,32]{3,2,1,0}, u8[0]{0}) custom-call(f32[27,256,32,32]{3,2,1,0}, f32[256,256,3,3]{3,2,1,0}, f32[256]{0}, f32[27,256,32,32]{3,2,1,0}), window={size=3x3 pad=1_1x1_1}, dim_labels=bf01_oi01->bf01, custom_call_target=\"__cudnn$convBiasActivationForward\", backend_config={\"operation_queue_id\":\"0\",\"wait_on_operation_queues\":[],\"cudnn_conv_backend_config\":{\"conv_result_scale\":1,\"activation_mode\":\"kNone\",\"side_input_scale\":1,\"leakyrelu_alpha\":0},\"force_earliest_schedule\":false}"
+    cc { major: 7 }
+    cudnn_version { major: 9 minor: 1 patch: 1 }
+    algos { id: 14 }
+  }
+  entries {
+    hlo: "(f32[27,256,32,32]{3,2,1,0}, u8[0]{0}) custom-call(f32[27,256,32,32]{3,2,1,0}, f32[256,256,3,3]{3,2,1,0}, f32[256]{0}, f32[27,256,32,32]{3,2,1,0}), window={size=3x3 pad=1_1x1_1}, dim_labels=bf01_oi01->bf01, custom_call_target=\"__cudnn$convBiasActivationForward\", backend_config={\"operation_queue_id\":\"0\",\"wait_on_operation_queues\":[],\"cudnn_conv_backend_config\":{\"conv_result_scale\":1,\"activation_mode\":\"kNone\",\"side_input_scale\":1,\"leakyrelu_alpha\":0},\"force_earliest_schedule\":false}"
+    cc { major: 7 minor: 5 }
+    cudnn_version { major: 9 minor: 1 patch: 1 }
+    algos { id: 14 }
+  }
 )pb";
 
 std::vector<stream_executor::dnn::AlgorithmDesc> GetDisabledConvAlgorithms(
