@@ -25,7 +25,7 @@ limitations under the License.
 #include "mlir/Pass/PassManager.h"  // from @llvm-project
 #include "mlir/Transforms/Passes.h"  // from @llvm-project
 #include "xla/service/gpu/llvm_gpu_backend/gpu_backend_lib.h"
-#include "xla/service/gpu/matmul_utils.h"
+#include "xla/service/gpu/model/tiled_hlo_computation.h"
 #include "xla/service/gpu/triton_sparse_extensions.h"
 #include "xla/service/hlo_module_config.h"
 #include "xla/stream_executor/device_description.h"
@@ -42,11 +42,15 @@ namespace mt = ::mlir::triton;
 
 absl::Status CreateTritonPipeline(
     mlir::OpPassManager& pm, const se::GpuComputeCapability& cc,
-    const TritonGemmConfig& config,
+    const BlockLevelParameters& block_level_parameters,
     mt::nvidia_gpu::ClusterInfo& out_cluster_info) {
   auto ccCuda = std::get<se::CudaComputeCapability>(cc);
   const int ccAsInt = ccCuda.major * 10 + ccCuda.minor;
   const int threadsPerWarp = 32;
+
+  int num_ctas = block_level_parameters.num_ctas;
+  int num_stages = block_level_parameters.num_stages;
+  int num_warps = block_level_parameters.num_warps;
 
   // Based on make_ttir() in
   // @triton//:third_party/nvidia/backend/compiler.py
@@ -62,10 +66,10 @@ absl::Status CreateTritonPipeline(
   // Based on make_ttgir() in
   // @triton//:third_party/nvidia/backend/compiler.py
   pm.addPass(mt::createConvertTritonToTritonGPUPass(
-      absl::StrFormat("cuda:%u", ccAsInt), config.num_warps, threadsPerWarp,
-      config.num_ctas));
-  pm.addPass(createAddSparseDotEncodingPass(config.num_warps, threadsPerWarp,
-                                            config.num_ctas));
+      absl::StrFormat("cuda:%u", ccAsInt), num_warps, threadsPerWarp,
+      num_ctas));
+  pm.addPass(
+      createAddSparseDotEncodingPass(num_warps, threadsPerWarp, num_ctas));
   pm.addPass(mt::gpu::createTritonGPUCoalesce());
   if (ccCuda.IsAtLeastAmpere()) {
     pm.addPass(mt::gpu::createTritonGPUF32DotTC());
@@ -83,7 +87,7 @@ absl::Status CreateTritonPipeline(
   // check for consistency with the upstream pipeline
   if (ccCuda.IsAtLeastAmpere()) {
     pm.addPass(mt::gpu::createTritonGPUCombineTensorSelectAndIf());
-    pm.addPass(mt::gpu::createTritonGPUPipeline({config.num_stages}));
+    pm.addPass(mt::gpu::createTritonGPUPipeline({num_stages}));
   }
   pm.addPass(mt::gpu::createTritonGPUPrefetch());
   pm.addPass(

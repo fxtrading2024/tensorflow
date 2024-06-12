@@ -48,12 +48,16 @@ using mlir::ValueRange;
 
 absl::Status CreateTritonPipeline(
     mlir::OpPassManager& pm, const se::GpuComputeCapability& cc,
-    const TritonGemmConfig& config,
+    const BlockLevelParameters& block_level_parameters,
     mt::nvidia_gpu::ClusterInfo& out_cluster_info) {
   // TODO(ROCm): Check whether value different than 0 can be used.
   const int ccAsInt = 0;
   // TODO(ROCm): Check why some test fail when threadsPerWarp is set to 64.
   const int threadsPerWarp = 32;
+
+  int num_ctas = block_level_parameters.num_ctas;
+  int num_stages = block_level_parameters.num_stages;
+  int num_warps = block_level_parameters.num_warps;
 
   // Based on make_ttir() in
   // @triton//:third_party/nvidia/backend/compiler.py
@@ -69,8 +73,8 @@ absl::Status CreateTritonPipeline(
   // Based on make_ttgir() in
   // @triton//:third_party/nvidia/backend/compiler.py
   pm.addPass(mt::createConvertTritonToTritonGPUPass(
-      absl::StrFormat("cuda:%u", ccAsInt), config.num_warps, threadsPerWarp,
-      config.num_ctas));
+      absl::StrFormat("cuda:%u", ccAsInt), num_warps, threadsPerWarp,
+      num_ctas));
   pm.addPass(mt::gpu::createTritonGPUCoalesce());
   pm.addPass(mt::gpu::createTritonGPURemoveLayoutConversions());
   pm.addPass(mt::gpu::createTritonGPUOptimizeThreadLocality());
@@ -79,7 +83,7 @@ absl::Status CreateTritonPipeline(
   // TODO ROCm Check if we want to compare MI100 and greater
   pm.addPass(mt::gpu::createTritonGPUOptimizeDotOperands({true}));
   pm.addPass(mlir::createCSEPass());
-  pm.addPass(mt::gpu::createTritonGPUPipeline({config.num_stages}));
+  pm.addPass(mt::gpu::createTritonGPUPipeline({num_stages}));
   pm.addPass(mt::gpu::createTritonGPUPrefetch());
 
   // TODO ROCm Check if we want to compare MI100 and greater

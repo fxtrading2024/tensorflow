@@ -19,6 +19,7 @@ limitations under the License.
 #include <cstdint>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -29,8 +30,8 @@ limitations under the License.
 #include "mlir/IR/MLIRContext.h"  // from @llvm-project
 #include "xla/hlo/ir/hlo_computation.h"
 #include "xla/hlo/ir/hlo_opcode.h"
-#include "xla/service/gpu/ir_emitter_triton.h"
 #include "xla/service/gpu/matmul_utils.h"
+#include "xla/service/gpu/model/tiled_hlo_computation.h"
 #include "xla/service/gpu/tests/gpu_codegen_test.h"
 #include "xla/stream_executor/device_description.h"
 
@@ -61,15 +62,29 @@ class TritonTest : public GpuCodegenTest {
 class TritonFilecheckTest : public TritonTest {
  public:
   absl::Status CreateTritonIrAndFileCheck(
-      absl::string_view hlo_text, const TritonGemmConfig& config,
-      std::vector<int64_t> output_tile_sizes, TritonIrEmitter emitter,
+      absl::string_view hlo_text,
+      const BlockLevelParameters& block_level_parameters,
       absl::string_view triton_fusion_name,
       absl::string_view filecheck_pattern);
 
   absl::Status CreateTritonIrAndFileCheck(
-      const HloComputation& computation, const TritonGemmConfig& config,
-      std::vector<int64_t> output_tile_sizes, TritonIrEmitter emitter,
+      const HloComputation& computation,
+      const BlockLevelParameters& block_level_parameters,
       absl::string_view filecheck_pattern);
+
+  absl::Status CreateTritonIrAndFileCheckForDot(
+      absl::string_view hlo_text, absl::string_view triton_fusion_name,
+      absl::string_view filecheck_pattern);
+
+  absl::Status CreateTritonIrAndFileCheckForDot(
+      const HloComputation& computation, absl::string_view filecheck_pattern);
+
+  BlockLevelParameters FromOutputTileSizes(
+      std::vector<int64_t> output_tile_sizes) {
+    BlockLevelParameters block_level_parameters;
+    block_level_parameters.output_tile_sizes = std::move(output_tile_sizes);
+    return block_level_parameters;
+  }
 };
 
 class TritonSupportTest : public TritonFilecheckTest {

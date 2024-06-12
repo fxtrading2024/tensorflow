@@ -24,7 +24,6 @@ limitations under the License.
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
-#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "xla/hlo/ir/hlo_casting_utils.h"
@@ -36,7 +35,6 @@ limitations under the License.
 #include "xla/primitive_util.h"
 #include "xla/service/gpu/gpu_device_info_for_tests.h"
 #include "xla/service/gpu/ir_emitter_triton.h"
-#include "xla/service/gpu/matmul_utils.h"
 #include "xla/service/gpu/triton_fusion_analysis.h"
 #include "xla/service/gpu/triton_test_utils.h"
 #include "xla/stream_executor/device_description.h"
@@ -85,9 +83,9 @@ ENTRY e {
       hlo_query::GetFirstInstructionWithOpcode(*computation, opcode);
   if (IsTritonSupportedInstruction(*instr, GetCudaComputeCapability())) {
     TF_EXPECT_OK(ApplyFloatNormalization(module.get()));
-    TF_EXPECT_OK(CreateTritonIrAndFileCheck(
-        *computation, /*config=*/{}, /*output_tile_sizes=*/{1, 32}, EmitGeneric,
-        "CHECK: tt.func @triton_fn"));
+    TF_EXPECT_OK(CreateTritonIrAndFileCheck(*computation,
+                                            FromOutputTileSizes({1, 32}),
+                                            "CHECK: tt.func @triton_fn"));
   } else {
     // TODO(b/331632717): update the check to use SymbolicTileAnalysis to avoid
     // tiling failures and check triton emitter fails gracefully.
@@ -156,9 +154,9 @@ ENTRY e {
       hlo_query::GetFirstInstructionWithOpcode(*computation, opcode);
   if (IsTritonSupportedInstruction(*instr, GetCudaComputeCapability())) {
     TF_EXPECT_OK(ApplyFloatNormalization(module.get()));
-    TF_EXPECT_OK(CreateTritonIrAndFileCheck(
-        *computation, /*config=*/{}, /*output_tile_sizes=*/{1, 32}, EmitGeneric,
-        "CHECK: tt.func @triton_fn"));
+    TF_EXPECT_OK(CreateTritonIrAndFileCheck(*computation,
+                                            FromOutputTileSizes({1, 32}),
+                                            "CHECK: tt.func @triton_fn"));
   } else {
     EXPECT_THAT(TritonFusionAnalysis::Execute(*computation),
                 ::testing::AnyOf(
@@ -230,9 +228,9 @@ ENTRY e {
       hlo_query::GetFirstInstructionWithOpcode(*computation, opcode);
   if (IsTritonSupportedInstruction(*instr, GetCudaComputeCapability())) {
     TF_EXPECT_OK(ApplyFloatNormalization(module.get()));
-    TF_EXPECT_OK(CreateTritonIrAndFileCheck(
-        *computation, /*config=*/{}, /*output_tile_sizes=*/{1, 32}, EmitGeneric,
-        "CHECK: tt.func @triton_fn"));
+    TF_EXPECT_OK(CreateTritonIrAndFileCheck(*computation,
+                                            FromOutputTileSizes({1, 32}),
+                                            "CHECK: tt.func @triton_fn"));
   } else {
     EXPECT_THAT(
         TritonFusionAnalysis::Execute(*computation),
@@ -285,9 +283,9 @@ ENTRY e {
       hlo_query::GetFirstInstructionWithOpcode(*computation, opcode);
   if (IsTritonSupportedInstruction(*instr, GetCudaComputeCapability())) {
     TF_EXPECT_OK(ApplyFloatNormalization(module.get()));
-    TF_EXPECT_OK(CreateTritonIrAndFileCheck(
-        *computation, /*config=*/{}, /*output_tile_sizes=*/{1, 32}, EmitGeneric,
-        "CHECK: tt.func @triton_fn"));
+    TF_EXPECT_OK(CreateTritonIrAndFileCheck(*computation,
+                                            FromOutputTileSizes({1, 32}),
+                                            "CHECK: tt.func @triton_fn"));
   } else {
     EXPECT_THAT(
         TritonFusionAnalysis::Execute(*computation),
@@ -346,16 +344,13 @@ ENTRY main {
   if (IsTritonSupportedInstruction(*instr, GetCudaComputeCapability())) {
     TF_EXPECT_OK(ApplyFloatNormalization(module.get()));
     TF_EXPECT_OK(CreateTritonIrAndFileCheck(
-        *computation, /*config=*/{}, /*output_tile_sizes=*/{1}, EmitGeneric,
-        "CHECK: tt.func @triton_fn"));
+        *computation, FromOutputTileSizes({1}), "CHECK: tt.func @triton_fn"));
   } else {
     const se::DeviceDescription dev_info =
         TestGpuDeviceInfo::RTXA6000DeviceInfo(GetCudaComputeCapability());
     EXPECT_THAT(
-        TritonWrapper(*TritonFusionAnalysis::Execute(*computation), "test_fn",
-                      fusion, GetCudaComputeCapability(), dev_info,
-                      /*config=*/{}, /*output_tile_sizes=*/{1}, &llvm_module_,
-                      &EmitGeneric, mlir_context_),
+        TritonWrapper("test_fn", fusion, GetCudaComputeCapability(), dev_info,
+                      FromOutputTileSizes({1}), &llvm_module_, mlir_context_),
         tsl::testing::StatusIs(
             absl::StatusCode::kInternal,
             ::testing::HasSubstr("Failed to compile Triton kernel")));
@@ -407,8 +402,7 @@ ENTRY main {
                   .CanFuse());
   TF_EXPECT_OK(ApplyFloatNormalization(module.get()));
   TF_EXPECT_OK(CreateTritonIrAndFileCheck(
-      *computation, /*config=*/{}, /*output_tile_sizes=*/{1}, EmitGeneric,
-      "CHECK: tt.func @triton_fn"));
+      *computation, FromOutputTileSizes({1}), "CHECK: tt.func @triton_fn"));
 }
 
 TEST_F(
@@ -583,10 +577,8 @@ ENTRY main {
               ::testing::HasSubstr("Reduction init value should be a constant "
                                    "or a convert of a constant."));
   EXPECT_THAT(
-      TritonWrapper(*TritonFusionAnalysis::Execute(*computation), "test_fn",
-                    fusion, GetCudaComputeCapability(), dev_info, /*config=*/{},
-                    /*output_tile_sizes=*/{1}, &llvm_module_, &EmitGeneric,
-                    mlir_context_),
+      TritonWrapper("test_fn", fusion, GetCudaComputeCapability(), dev_info,
+                    FromOutputTileSizes({1}), &llvm_module_, mlir_context_),
       tsl::testing::StatusIs(
           absl::StatusCode::kInternal,
           ::testing::HasSubstr("operand->opcode() == HloOpcode::kConstant")));
@@ -631,10 +623,8 @@ ENTRY main {
           .Explain(),
       ::testing::HasSubstr("Unsupported reduction computation by Triton."));
   EXPECT_THAT(
-      TritonWrapper(*TritonFusionAnalysis::Execute(*computation), "test_fn",
-                    fusion, GetCudaComputeCapability(), dev_info, /*config=*/{},
-                    /*output_tile_sizes=*/{1}, &llvm_module_, &EmitGeneric,
-                    mlir_context_),
+      TritonWrapper("test_fn", fusion, GetCudaComputeCapability(), dev_info,
+                    FromOutputTileSizes({1}), &llvm_module_, mlir_context_),
       tsl::testing::StatusIs(absl::StatusCode::kInvalidArgument,
                              ::testing::HasSubstr("Unsupported operation")));
 }
