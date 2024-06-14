@@ -82,12 +82,15 @@ struct Interval {
 
   // All comparison operators here return true or false if the result is known,
   // or nullopt if it may be either true or false.
-  ComparisonResult operator>(const Interval& b) const;
-  ComparisonResult operator<(const Interval& b) const { return b > *this; }
-  ComparisonResult operator>=(const Interval& b) const { return !(b > *this); }
-  ComparisonResult operator<=(const Interval& b) const { return !(*this > b); }
-  ComparisonResult operator==(const Interval& b) const;
-  ComparisonResult operator!=(const Interval& b) const { return !(*this == b); }
+  // We don't use operators here, because the "==" used for hashing is not the
+  // same as "Eq".
+  ComparisonResult Gt(const Interval& b) const;
+  ComparisonResult Lt(const Interval& b) const { return b.Gt(*this); }
+  ComparisonResult Ge(const Interval& b) const { return !b.Gt(*this); }
+  ComparisonResult Le(const Interval& b) const { return !this->Gt(b); }
+  // This is not the same as "==".  See the implementation.
+  ComparisonResult Eq(const Interval& b) const;
+  ComparisonResult Ne(const Interval& b) const { return !this->Eq(b); }
 
   Interval Intersect(const Interval& rhs) const {
     Interval result{std::max(lower, rhs.lower), std::min(upper, rhs.upper)};
@@ -120,7 +123,8 @@ struct Interval {
     return {std::max(lower, rhs.lower), std::max(upper, rhs.upper)};
   }
 
-  bool Equals(const Interval& rhs) const {
+  // This is not the same as "Eq".  See the implementation.
+  bool operator==(const Interval& rhs) const {
     return lower == rhs.lower && upper == rhs.upper;
   }
 
@@ -133,6 +137,11 @@ std::ostream& operator<<(std::ostream& out, const Interval& range);
 template <typename H>
 H AbslHashValue(H h, const Interval& range) {
   return H::combine(std::move(h), range.lower, range.upper);
+}
+
+// For use in llvm::hash_combine.
+inline size_t hash_value(const Interval& range) {
+  return llvm::hash_combine(range.lower, range.upper);
 }
 
 // Evaluates lower and upper bounds for expressions given the domain.
@@ -434,10 +443,17 @@ template <typename H>
 H AbslHashValue(H h, const IndexingMap& indexing_map) {
   llvm::hash_code affine_map_hash =
       llvm::hash_combine(indexing_map.GetAffineMap());
-  return H::combine(std::move(h), static_cast<size_t>(affine_map_hash),
-                    indexing_map.GetDimVars(), indexing_map.GetRangeVars(),
-                    indexing_map.GetRTVars(),
-                    indexing_map.GetConstraintsCount());
+  llvm::SmallVector<size_t> constraint_hashes;
+  constraint_hashes.reserve(indexing_map.GetConstraintsCount());
+  for (const auto& [expr, interval] : indexing_map.GetConstraints()) {
+    constraint_hashes.push_back(llvm::hash_combine(expr, interval));
+  }
+  h = H::combine(std::move(h), static_cast<size_t>(affine_map_hash),
+                 indexing_map.GetDimVars(), indexing_map.GetRangeVars(),
+                 indexing_map.GetRTVars());
+  h = H::combine_unordered(std::move(h), constraint_hashes.begin(),
+                           constraint_hashes.end());
+  return h;
 }
 
 int64_t FloorDiv(int64_t dividend, int64_t divisor);
