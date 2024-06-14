@@ -4949,6 +4949,7 @@ tf_proto_library(
     srcs = ["gpu_autotuning.proto"],
     cc_api_version = 2,
     protodeps = [
+        ":backend_configs",
         "//xla:xla_data_proto",
         "//xla/service:hlo_proto",
         "//xla:autotuning_proto",
@@ -4960,9 +4961,11 @@ cc_library(
     srcs = ["hlo_algorithm_denylist.cc"],
     hdrs = ["hlo_algorithm_denylist.h"],
     deps = [
+        ":backend_configs_cc",
         ":gpu_autotuning_proto_cc",
         "//xla:autotuning_proto_cc",
         "//xla:debug_options_flags",
+        "//xla/hlo/ir:backend_config",
         "//xla/stream_executor:dnn",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/log:check",
